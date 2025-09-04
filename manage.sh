@@ -3,7 +3,7 @@
 set -e
 
 # Define variables
-SCRIPT_VERSION="0.1.0"
+SCRIPT_VERSION="0.2.0"
 COMPOSE_FILE=$(ls ./docker-compose.y* 2>/dev/null | head -n 1)
 ENV_FILE="./.env"
 COLIMA_CPU=2
@@ -75,6 +75,16 @@ parse_args() {
   done
 }
 
+check_brew() {
+  if ! command -v brew &>/dev/null; then
+    warn "Homebrew is not installed."
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  else
+    info "Homebrew is already installed."
+  fi
+}
+
 check_ws() {
   if [ -z "$COMPOSE_FILE" ]; then
     error "Error: docker-compose.yml or docker-compose.yaml not found."
@@ -114,11 +124,25 @@ install_deps() {
   return 0
 }
 
+detect_arch() {
+  local arch_name=$(uname -m)
+  if [[ "$arch_name" == "x86_64" ]]; then
+    COLIMA_ARCH="x86_64"
+  elif [[ "$arch_name" == "arm64" ]]; then
+    COLIMA_ARCH="aarch64"
+  else
+    warn "Unknown architecture: $arch_name. Defaulting to aarch64."
+    COLIMA_ARCH="aarch64"
+  fi
+  info "Detected architecture: $COLIMA_ARCH"
+}
+
 run_colima() {
   if colima status | grep -q "stopped"; then
     info "Starting existing Colima VM..."
     colima start
   elif ! colima status &>/dev/null; then
+    detect_arch
     info "Creating new Colima VM..."
     colima start \
       --cpu $COLIMA_CPU \
@@ -315,6 +339,7 @@ get_status() {
 
 parse_args "$@"
 intro
+check_brew
 if [ "$ACTION" = "start" ]; then
   check_ws || exit 1
   check_sudo || exit 1
