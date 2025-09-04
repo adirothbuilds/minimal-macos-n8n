@@ -1,7 +1,8 @@
 # n8n + Traefik + Cloudflare Tunnel on Colima
 
+
 This setup lets you run **n8n** locally on macOS with **Colima**, expose it securely with a **Cloudflare Tunnel**, and manage TLS via Traefik.  
-The script `start.sh` automates everything: dependency checks, Colima VM startup, Cloudflare tunnel creation, environment variable validation, and deployment.  
+The script `manage.sh` automates everything: dependency checks, Colima VM startup, Cloudflare tunnel creation, environment variable validation, and deployment.  
 
 ---
 
@@ -32,7 +33,7 @@ Other variables (`DB_POSTGRESDB_HOST`, `DB_POSTGRESDB_PORT`, etc.) can remain wi
 
 ## 📄 Example `.env`
 
-Copy this into a file named `.env` in the project root before running `./start.sh`.  
+Copy this into a file named `.env` in the project root before running `./manage.sh`.  
 The script will prompt you to replace the placeholders if you leave them as-is.
 
 ```env
@@ -62,48 +63,61 @@ GENERIC_TIMEZONE=Asia/Jerusalem
 Make the script executable:
 
 ```zsh
-chmod +x start.sh
+chmod +x manage.sh
 ```
 
-Run with defaults:
+Start services (default):
 
 ```zsh
-./start.sh
+./manage.sh start
 ```
 
-Skip Cloudflare tunnel creation (if you already have one):
+Stop services and Colima:
 
 ```zsh
-./start.sh --skip-tunnel
+./manage.sh stop
+```
+
+Skip Cloudflare tunnel creation (only for start):
+
+```zsh
+./manage.sh start --skip-tunnel
 ```
 
 Show help:
 
 ```zsh
-./start.sh --help
+./manage.sh --help
 ```
 
 ---
 
 ## Script Flow
 
-1. **Workspace check** → Validates `.env` and `docker-compose.yaml`.  
-2. **Dependency check** → Installs `colima`, `docker`, `docker-compose`, and `cloudflared` if missing.  
-3. **Colima startup** → Starts VM with limited resources (`2 CPU / 4GB RAM / 30GB disk`).  
-4. **Docker check** → Ensures Docker is running inside Colima.  
-5. **Cloudflare Tunnel** → Creates tunnel + DNS record, extracts token, updates `.env`.  
-6. **Environment variables** → Prompts you to update/confirm all critical variables.  
-7. **Deploy** → Runs `docker compose up -d`.  
-8. **Access** → Prints your n8n URL:  
+### `start` action
+
+1. **Workspace check** → Validates `.env` and `docker-compose.yaml`.
+2. **Dependency check** → Installs `colima`, `docker`, `docker-compose`, and `cloudflared` if missing.
+3. **Colima startup** → Starts VM with limited resources (`2 CPU / 4GB RAM / 30GB disk`).
+4. **Docker check** → Ensures Docker is running inside Colima.
+5. **Cloudflare Tunnel** → Creates tunnel + DNS record, extracts token, updates `.env` (unless `--skip-tunnel` is used).
+6. **Environment variables** → Prompts you to update/confirm all critical variables.
+7. **Deploy** → Runs `docker compose up -d`.
+8. **Access** → Prints your n8n URL:
 
     ```zsh
     Your n8n instance should be available at: https://SUBDOMAIN.DOMAIN_NAME/
     ```
+
+### `stop` action
+
+1. **Stop services** → Shuts down n8n containers and Colima VM.
+2. **Cleanup** → Confirms all services and Colima have been stopped.
 
 ---
 
 ## Notes
 
 - Always make sure your domain is managed by **Cloudflare**.  
-- If you change critical values (like subdomain or password), rerun `./start.sh` and confirm updates.  
+- If you change critical values (like subdomain or password), rerun `./manage.sh start` and confirm updates.  
 - Colima resources (CPU/RAM/Disk) can be adjusted inside the script variables at the top.  

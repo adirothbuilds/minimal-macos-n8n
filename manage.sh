@@ -12,20 +12,30 @@ COLIMA_ARCH="aarch64"
 COLIMA_VM_TYPE="vz"
 COLIMA_MOUNT_TYPE="virtiofs"
 SKIP_TUNNEL=false
+ACTION="start"
 
 help() {
-  echo "Usage: start.sh [options]"
+  echo "Usage: $0 [action] [options]"
+  echo ""
+  echo "Actions:"
+  echo "  start           Start services (default)"
+  echo "  stop            Stop services and Colima"
+  echo ""
   echo "Options:"
-  echo "  --skip-tunnel   Skip the creation of the Cloudflare tunnel"
+  echo "  --skip-tunnel   Skip the creation of the Cloudflare tunnel (only for start)"
   echo "  -h, --help      Show this help message"
 }
 
 parse_args() {
+  if [[ "$1" == "start" || "$1" == "stop" ]]; then
+    ACTION=$1
+    shift
+  fi
+
   for arg in "$@"; do
     case $arg in
       --skip-tunnel)
         SKIP_TUNNEL=true
-        shift
         ;;
       -h|--help)
         help
@@ -80,15 +90,21 @@ install_deps() {
 }
 
 run_colima() {
-  echo "Starting Colima VM with limited resources..."
-  colima start \
-  --cpu $COLIMA_CPU \
-  --memory $COLIMA_MEM \
-  --disk $COLIMA_DISK \
-  --arch $COLIMA_ARCH \
-  --vm-type $COLIMA_VM_TYPE \
-  --mount-type $COLIMA_MOUNT_TYPE
-  return 0
+  if colima status | grep -q "stopped"; then
+    echo "Starting existing Colima VM..."
+    colima start
+  elif ! colima status &>/dev/null; then
+    echo "Creating new Colima VM..."
+    colima start \
+      --cpu $COLIMA_CPU \
+      --memory $COLIMA_MEM \
+      --disk $COLIMA_DISK \
+      --arch $COLIMA_ARCH \
+      --vm-type $COLIMA_VM_TYPE \
+      --mount-type $COLIMA_MOUNT_TYPE
+  else
+    echo "Colima is already running."
+  fi
 }
 
 ping_docker() {
@@ -226,16 +242,36 @@ deploy() {
   return 0
 }
 
+stop_services() {
+  echo "Stopping n8n services..."
+  docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE down || true
+  echo "n8n services stopped."
+
+  echo "Stopping Colima..."
+  colima stop || true
+  echo "Colima stopped."
+
+  echo "All services and Colima have been stopped successfully."
+}
+
 parse_args "$@"
-check_ws || exit 1
-check_sudo || exit 1
-install_deps || exit 1
-run_colima || exit 1
-ping_docker || exit 1
-create_cloudflare_tunnel || exit 1
-update_env_var "N8N_USER_EMAIL" "your_email@example.com" "Enter N8N admin email"
-update_env_var "N8N_USER_PASSWORD" "your_password" "Enter N8N admin password"
-update_env_var "SUBDOMAIN" "subdomain" "Enter subdomain"
-update_env_var "DOMAIN_NAME" "example.com" "Enter domain name"
-update_env_var "DB_POSTGRESDB_PASSWORD" "your_password" "Enter DB password"
-deploy || exit 1
+
+if [ "$ACTION" = "start" ]; then
+  check_ws || exit 1
+  check_sudo || exit 1
+  install_deps || exit 1
+  run_colima || exit 1
+  ping_docker || exit 1
+  create_cloudflare_tunnel || exit 1
+  update_env_var "N8N_USER_EMAIL" "your_email@example.com" "Enter N8N admin email"
+  update_env_var "N8N_USER_PASSWORD" "your_password" "Enter N8N admin password"
+  update_env_var "SUBDOMAIN" "subdomain" "Enter subdomain"
+  update_env_var "DOMAIN_NAME" "example.com" "Enter domain name"
+  update_env_var "DB_POSTGRESDB_PASSWORD" "your_password" "Enter DB password"
+  deploy || exit 1
+elif [ "$ACTION" = "stop" ]; then
+  stop_services
+else
+  help
+  exit 1
+fi
