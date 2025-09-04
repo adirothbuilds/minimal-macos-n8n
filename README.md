@@ -66,6 +66,7 @@ Make the script executable:
 chmod +x manage.sh
 ```
 
+
 Start services (default):
 
 ```zsh
@@ -76,6 +77,24 @@ Stop services and Colima:
 
 ```zsh
 ./manage.sh stop
+```
+
+Show live logs:
+
+```zsh
+./manage.sh logs
+```
+
+Show status of Colima and n8n services:
+
+```zsh
+./manage.sh status
+```
+
+Show script version:
+
+```zsh
+./manage.sh --version
 ```
 
 Skip Cloudflare tunnel creation (only for start):
@@ -94,7 +113,10 @@ Show help:
 
 ## Script Flow
 
-### `start` action
+
+### Actions
+
+#### `start`
 
 1. **Workspace check** → Validates `.env` and `docker-compose.yaml`.
 2. **Dependency check** → Installs `colima`, `docker`, `docker-compose`, and `cloudflared` if missing.
@@ -109,10 +131,22 @@ Show help:
     Your n8n instance should be available at: https://SUBDOMAIN.DOMAIN_NAME/
     ```
 
-### `stop` action
+#### `stop`
 
 1. **Stop services** → Shuts down n8n containers and Colima VM.
 2. **Cleanup** → Confirms all services and Colima have been stopped.
+
+#### `logs`
+
+1. **Show logs** → Tails live logs from n8n services.
+
+#### `status`
+
+1. **Show status** → Displays current status of Colima VM and n8n containers.
+
+#### `--version`
+
+1. **Show script version** → Prints the current version of the manage.sh script.
 
 ---
 
