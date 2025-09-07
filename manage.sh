@@ -3,7 +3,7 @@
 set -e
 
 # Define variables
-SCRIPT_VERSION="0.2.0"
+SCRIPT_VERSION="0.2.1"
 COMPOSE_FILE=$(ls ./docker-compose.y* 2>/dev/null | head -n 1)
 ENV_FILE="./.env"
 COLIMA_CPU=2
@@ -233,32 +233,28 @@ create_cloudflare_tunnel() {
 }
 
 update_env_var() {
-  key=$1
-  placeholder=$2
-  prompt=$3
+  local key="$1" placeholder="$2" prompt="$3"
+  local current new_value
+  : ${ENV_FILE:=".env"}
+  [[ -f "$ENV_FILE" ]] || : > "$ENV_FILE"
 
-  current=$(awk -F= -v key="$key" '$1==key {print $2}' "$ENV_FILE")
+  current=$(awk -F= -v key="$key" '$1==key {sub(/^[^=]*=/,""); print; exit}' "$ENV_FILE")
 
-  if [ -z "$current" ] || [ "$current" = "$placeholder" ]; then
-    read -p "$prompt: " new_value
-    if [ -z "$new_value" ]; then
-      info "No value entered. Keeping placeholder: $placeholder"
-      new_value=$placeholder
-    fi
+  if [[ -z "$current" || "$current" == "$placeholder" ]]; then
+    read -r "new_value?${prompt}: "
+    [[ -z "$new_value" ]] && { print -r -- "[INFO] No value entered. Keeping placeholder: $placeholder"; new_value="$placeholder"; }
   else
-    read -p "$prompt [$current]: " new_value
-    if [ -z "$new_value" ]; then
-      new_value=$current
-    fi
+    read -r "new_value?${prompt} [${current}]: "
+    [[ -z "$new_value" ]] && new_value="$current"
   fi
 
-  if grep -q "^$key=" "$ENV_FILE"; then
-    sed -i.bak "s|^$key=.*|$key=$new_value|" "$ENV_FILE" && rm "$ENV_FILE.bak"
+  if grep -qE "^${key}=" "$ENV_FILE"; then
+    sed -i '' "s|^${key}=.*|${key}=${new_value}|" "$ENV_FILE"
   else
-    echo "$key=$new_value" >> "$ENV_FILE"
+    print -r -- "${key}=${new_value}" >> "$ENV_FILE"
   fi
 
-  export $key=$new_value
+  export "${key}=${new_value}"
 }
 
 print_url() {
